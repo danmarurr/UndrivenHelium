@@ -18,16 +18,18 @@ function undrivenHelium1D!(τ, q, dq)
     t1 = Q₁^2
     t2 = Q₂^2
     t = t1 * t2
+    #dq[1] = t
     R12 = t1 - t2
     aR12 = abs(R12)
     RRR = aR12^3
     c1 = R12/RRR
-    c2 = 1 + 1/aR12
-    #@show c2
+    f1 = (1 + 1/aR12)
+    f2 = t*c1
+   
     dq[1] = 0.25*t2*P₁
-    dq[3] = 2*Q₁*(-0.125*P₂^2 + Z  - t2*c2  + t*c1)
+    dq[3] = 2*Q₁*(-0.125*P₂^2 + Z  - t2*f1 + f2)
     dq[2] = 0.25*t1*P₂
-    dq[4] = 2*Q₂*(-0.125*P₁^2 + Z  - t1*c2 - t*c1)
+    dq[4] = 2*Q₂*(-0.125*P₁^2 + Z  - t1*f1 - f2)
 
 #    return [t, q₁, q₂, p₁, p₂] 
     nothing
@@ -38,14 +40,16 @@ function errHam2D(N::Int)
     srand(487293456)
     J = vcat(  hcat(zeros(4,4), eye(4,4)), hcat(-eye(4,4), zeros(4,4))  )
     
+    var2D = set_variables("q₁x q₁y q₂x q₂y p₁x p₁y p₂x p₂y", order = 1)
+    
     dnorm = zeros(N)
     
     for j in 1:N
         al = condini2D(rand(5)...)
         #al = rand(8)
         meq = similar(al)
-        alt = al + var1
-        ene = J*∇(regHam(alt))
+        alt = al + var2D
+        ene = J*∇(regHam2D(alt))
         ene1 = Float64[ene[k].coeffs[1].coeffs[1] for k in 1:8]
         undrivenHelium2D!(0.0, al, meq)
         dnorm[j] = norm(meq - ene1)/eps()
@@ -86,7 +90,7 @@ function undrivenHelium2D!{T<:Number}(τ, q::Array{T,1}, dq::Array{T,1})
 end
 
 #Variables para tests de compatibilidad hamiltoniano eom
-var1 = set_variables("q₁x q₁y q₂x q₂y p₁x p₁y p₂x p₂y", order = 1)
+
 
 #Condiciones Iniciales en 1D
 function condini1D{T<:Number}(x10::T, px10::T)
@@ -131,6 +135,7 @@ function regHam2D(q₁x, q₁y, q₂x, q₂y, p₁x, p₁y, p₂x, p₂y)
 end
 
 
+
 regHam2D(v) = regHam2D(v...)
 
 #Hamiltoniano en coord. regularizadas 1D
@@ -149,3 +154,29 @@ end
 regHam1D(v) = regHam1D(v...)
 
 #end
+
+
+
+function errHam1D(N::Int)
+    srand(487293456)
+    J = vcat(  hcat(zeros(2,2), eye(2,2)), hcat(-eye(2,2), zeros(2,2))  )
+    
+    var1D = set_variables("q₁ q₂ p₁ p₂", order = 1)
+    
+    dnorm = zeros(N)
+    als = typeof(zeros(4))[]
+
+    for j in 1:N
+        al = condini1D(rand(2)...)
+        meq = similar(al)
+        #al = [BigFloat(x) for x in al1]
+        alt = al + var1D
+        ene = J*∇(regHam1D(alt))
+        ene1 = [ene[k].coeffs[1].coeffs[1] for k in 1:4]
+        undrivenHelium1D!(0.0, al, meq)
+        push!(als, al)
+        meq[1] = 0
+        dnorm[j] = norm(meq - ene1)/eps() 
+    end
+    return dnorm, als 
+end
