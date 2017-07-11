@@ -161,7 +161,7 @@ function vartaylorinteg{T<:Number}(f!, q0::Array{T,1}, t0::T, tmax::T,
         end
     end
 
-    return view(tv,1:nsteps), view(transpose(xv),1:nsteps,:), δSv, mv
+    return view(tv,1:nsteps), view(transpose(xv),1:nsteps,:), view(δSv, 1:nsteps), view(mv, 1:nsteps)
 end
 
 
