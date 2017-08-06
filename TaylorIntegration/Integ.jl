@@ -196,12 +196,14 @@ end
 
 #Integrador con secciones de Poincaré
 function taylorintegps{T<:Number}(f!, q0::Array{T,1}, t0::T, tmax::T,
-    order::Int, abstol::T; maxsteps::Int=500, tol = 1e-20, tsteps = 1000)
+    order::Int, abstol::T; maxsteps::Int=500, tol = 1e-20, tsteps = 20)
 
     # Allocation
     const tv = Array{T}(maxsteps+1)
+    const tvP = Array{T}(maxsteps+1)
     dof = length(q0)
     const xv = Array{T}(dof, maxsteps+1)
+    const xvP = Array{T}(dof, maxsteps+1)
     const vT = zeros(T, order+1)
     vT[2] = one(T)
 
@@ -219,7 +221,7 @@ function taylorintegps{T<:Number}(f!, q0::Array{T,1}, t0::T, tmax::T,
     x0 = copy(q0)
 
     # Integration
-    
+    events = 0
     nsteps = 1
     #sum1 = q0[3]/maxsteps
     δtn = Inf
@@ -251,10 +253,14 @@ function taylorintegps{T<:Number}(f!, q0::Array{T,1}, t0::T, tmax::T,
         end
             
         if bool1 == true
+            events += 1
             nsteps += 1
             @inbounds tv[nsteps] = t0 + δtn
             @inbounds xv[:,nsteps] .= x0
+            @inbounds tvP[events] = tv[nsteps]
+            @inbounds xvP[:,events] = xv[:,nsteps]
             x0 = x00
+ 
         end
         if nsteps >= maxsteps
             warn("""
@@ -278,5 +284,5 @@ function taylorintegps{T<:Number}(f!, q0::Array{T,1}, t0::T, tmax::T,
         end
     end
 
-    return view(tv,1:nsteps), view(transpose(xv),1:nsteps,:)
+    return view(tv,1:nsteps), view(transpose(xv),1:nsteps,:), view(tvP,1:events), view(transpose(xvP),1:events,:)
 end
