@@ -53,8 +53,8 @@ function errHam2D(N::Int)
         ene1 = Float64[ene[k].coeffs[1].coeffs[1] for k in 1:8]
         undrivenHelium2D!(0.0, al, meq)
         dnorm[j] = norm(meq - ene1)/eps()
+        return dnorm
     end
-    return dnorm  
 end
 
 
