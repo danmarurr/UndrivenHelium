@@ -168,7 +168,7 @@ end
 #### Secciones de Poincaré 1D
 
 #Función que detecta el cruce por la sección
-function q2sign(xold, x0, tol)
+function q2sign(xold::Array{Float64,1}, x0::Array{Float64,1}, tol)
     if abs(xold[2]) < tol
         sq2o = 0
     else
@@ -193,6 +193,33 @@ function q2sign(xold, x0, tol)
     end
     return sq2o, sq2, sp2o, sp2
 end
+
+function q2sign{T<:Number}(xold::Array{TaylorN{T},1}, x0::Array{TaylorN{T},1}, tol)
+    if abs(xold[2][1][1]) < tol
+        sq2o = 0
+    else
+        sq2o = sign(xold[2][1][1])
+    end
+    
+    if abs(x0[2][1][1]) < tol
+        sq2 = 0
+    else
+        sq2 = sign(x0[2][1][1])
+    end
+    if abs(xold[4][1][1]) < tol
+        sp2o = 0
+    else
+        sp2o = sign(xold[4][1][1])
+    end
+    
+    if abs(x0[4][1][1]) < tol
+        sp2 = 0
+    else
+        sp2 = sign(x0[4][1][1])
+    end
+    return sq2o, sq2, sp2o, sp2
+end
+
 
 #Integrador con secciones de Poincaré
 function taylorintegps{T<:Number}(f!, q0::Array{T,1}, t0::T, tmax::T,
@@ -233,7 +260,7 @@ function taylorintegps{T<:Number}(f!, q0::Array{T,1}, t0::T, tmax::T,
         x00 = copy(x0)
         bool1 = false
         
-        while sq2o*sq2 == -1 || (sp2o*sp2 == -1 && abs(xold[2]) < tol)
+        if sq2o*sq2 == -1 || (sp2o*sp2 == -1 && abs(xold[2]) < tol)
             bool1 = true
             q2T = x[2]
             
@@ -286,3 +313,107 @@ function taylorintegps{T<:Number}(f!, q0::Array{T,1}, t0::T, tmax::T,
 
     return view(tv,1:nsteps), view(transpose(xv),1:nsteps,:), view(tvP,1:events), view(transpose(xvP),1:events,:)
 end
+
+
+
+#Jet Transport + Poincaré Sections
+function taylorintegps{T<:Number}(f!, q0::Array{TaylorN{T},1}, t0::T, tmax::T,
+    order::Int, abstol::T; maxsteps::Int=500, tol = 1e-20, tsteps = 20)
+
+    # Allocation
+    const tv = Array{T}(maxsteps+1)
+    const tvP = Array{T}(maxsteps+1)
+    dof = length(q0)
+    const xv = Array{TaylorN{T}}(dof, maxsteps+1)
+    const xvP = Array{TaylorN{T}}(dof, maxsteps+1)
+    const vT = zeros(T, order+1)
+    vT[2] = one(T)
+
+    # Initialize the vector of Taylor1 expansions
+    const x = Array{Taylor1{TaylorN{T}}}(dof)
+    const dx = Array{Taylor1{TaylorN{T}}}(dof)
+    const xaux = Array{Taylor1{TaylorN{T}}}(dof)
+    for i in eachindex(q0)
+        @inbounds x[i] = Taylor1( q0[i], order )
+    end
+
+    # Initial conditions
+    @inbounds tv[1] = t0
+    @inbounds xv[:,1] .= q0
+    x0 = copy(q0)
+    
+    const x_g_Dg_D2g = vcat(zero(x[1]), zero(x[1]))
+    const x_g_Dg_D2g_val = Array{TaylorN{T}}( length(x_g_Dg_D2g) )
+
+    # Integration
+    events = 0
+    nsteps = 1
+    #sum1 = q0[3]/maxsteps
+    δtn = Inf
+    while t0 < tmax
+        xold = copy(x0)
+        δt = TaylorIntegration.taylorstep!(f!, x, dx, xaux, t0, tmax, x0, order, abstol, vT)
+        sq2o, sq2, sp2o, sp2 = q2sign(xold, x0, tol)
+        steps1 = 0
+        x00 = copy(x0)
+        bool1 = false
+        
+        if sq2o*sq2 == -1 || (sp2o*sp2 == -1 && abs(xold[2][1][1]) < tol)
+            bool1 = true
+            q2T = x[2]
+            
+            dq2T = derivative(q2T)
+            δtn = copy(δt)
+            for nc in 1:20
+                δtn = δtn - constant_term(evaluate(q2T, δtn)/evaluate(dq2T, δtn))
+            end
+            
+            evaluate!(x, δtn, x0)
+            sq2o, sq2, sp2o, sp2 = q2sign(xold, x0, tol)
+            steps1 += 1
+            
+            if steps1  ≥ tsteps
+                break
+            end
+        end
+        
+        if bool1 == true
+            events += 1
+            nsteps += 1
+            
+            @inbounds tv[nsteps] = t0 + δtn
+            @inbounds xv[:,nsteps] .= x0
+            @inbounds tvP[events] = tv[nsteps]
+            @inbounds xvP[:,events] = xv[:,nsteps]
+            x0 = x00
+ 
+        end
+        
+        if nsteps >= maxsteps
+            warn("""
+            Maximum number of integration steps reached; exiting.
+            """)
+            break
+        end
+        
+        for i in eachindex(x0)
+            @inbounds x[i][1] = x0[i]
+        end
+        t0 += δt
+        nsteps += 1
+        @inbounds tv[nsteps] = t0
+        @inbounds xv[:,nsteps] .= x0
+        if nsteps >= maxsteps
+            warn("""
+            Maximum number of integration steps reached; exiting.
+            """)
+            break
+        end
+    end
+    
+    #return view(tv,1:nsteps), view(transpose(xv),1:nsteps,:), view(tvP,1:events), view(transpose(xvP),1:events,:)
+    return view(tv,1:nsteps), xv, view(tvP,1:events),xvP
+end
+
+
+

@@ -1,11 +1,12 @@
 #Módulo con ecuaciones de movimiento, hamiltoniano y test de energía de la configuración Zee
 
-__precompile__(true)
+#__precompile__(true)
 
 
 #module UH
 const Z = 2.0
-#Pkg.checkout("TaylorIntegration", "master")
+#Pkg.checkout("TaylorIntegration", "parse_eqs")
+#Pkg.checkout("TaylorSeries", "mutating_functions")
 using TaylorSeries, TaylorIntegration
 #Regularización KS
 f(x, y) = [x^2 - y^2, 2x*y]
@@ -35,28 +36,7 @@ function undrivenHelium1D!(τ, q, dq)
     nothing
 end
 
-function undrivenHelium11D!(τ, q, dq)
-    Q₁, Q₂, P₁, P₂ = q
-    
-    t1 = Q₁^2
-    t2 = Q₂^2
-    t = t1 * t2
-    #dq[1] = t
-    R12 = t1 - t2
-    aR12 = sqrt(R12^2)
-    RRR = aR12^3
-    c1 = R12/RRR
-    f1 = (1 + 1/aR12)
-    f2 = t*c1
-   
-    dq[1] = 0.25*t2*P₁
-    dq[3] = 2*Q₁*(-0.125*P₂^2 + Z  - t2*f1 + f2)
-    dq[2] = 0.25*t1*P₂
-    dq[4] = 2*Q₂*(-0.125*P₁^2 + Z  - t1*f1 - f2)
 
-#    return [t, q₁, q₂, p₁, p₂] 
-    return nothing
-end
 
 #Test de compatibilidad eom-Hamiltoniano
 function errHam2D(N::Int)
