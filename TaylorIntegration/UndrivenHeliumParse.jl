@@ -14,26 +14,25 @@ f(v) = f(v...)
 
 #Ecuaciones de movimiento 1D
 function undrivenHelium1D!(τ, q, dq)
-    Q₁, Q₂, P₁, P₂ = q
-    
-    t1 = Q₁^2
-    t2 = Q₂^2
+    t1 = q[1]^2
+    t2 = q[2]^2
     t = t1 * t2
     #dq[1] = t
     R12 = t1 - t2
     aR12 = abs(R12)
+    #aR12 = sqrt(R12^2)
     RRR = aR12^3
     c1 = R12/RRR
     f1 = (1 + 1/aR12)
     f2 = t*c1
    
-    dq[1] = 0.25*t2*P₁
-    dq[3] = 2*Q₁*(-0.125*P₂^2 + Z  - t2*f1 + f2)
-    dq[2] = 0.25*t1*P₂
-    dq[4] = 2*Q₂*(-0.125*P₁^2 + Z  - t1*f1 - f2)
+    dq[1] = 0.25*(t2*q[3])
+    dq[3] = (2*q[1])*(((-0.125*q[4]^2) + Z) - ((t2*f1) - f2))
+    dq[2] = 0.25*(t1*q[4])
+    dq[4] = (2*q[2])*(((-0.125*q[3]^2) + Z) - ((t1*f1) + f2))
 
 #    return [t, q₁, q₂, p₁, p₂] 
-    nothing
+    return nothing
 end
 
 
@@ -64,32 +63,33 @@ end
 
 #Ecuaciones de movimiento 2D
 function undrivenHelium2D!{T<:Number}(τ, q::Array{T,1}, dq::Array{T,1})
-    Q₁x, Q₁y, Q₂x, Q₂y, P₁x, P₁y, P₂x, P₂y = q
-    
+      
     #Cantidades auxiliares
-    Q₁² = Q₁x^2 + Q₁y^2
-    Q₂² = Q₂x^2 + Q₂y^2
-    P₁² = P₁x^2 + P₁y^2
-    P₂² = P₂x^2 + P₂y^2
+    Q₁² = q[1]^2 + q[2]^2
+    Q₂² = q[3]^2 + q[4]^2
+    P₁² = q[5]^2 + q[6]^2
+    P₂² = q[7]^2 + q[8]^2
     t = Q₁²*Q₂²
-    rf = f(Q₁x, Q₁y) - f(Q₂x, Q₂y)
-    f₁, f₂ = rf
+    f₁ = (q[1]^2 - q[2]^2) - (q[3]^2 - q[4]^2)
+    f₂ = 2(q[1]*q[2]) - 2(q[3]*q[4])
     fs = f₁^2 + f₂^2
     nf = sqrt(fs)
     c1 = 1 + 1/nf
     nf³ = nf^3
     factor1 = t/nf³
-    s1 = -0.125P₂² + Z - Q₂²*c1
+    s1 = -0.125P₂² + (Z - Q₂²*c1)
     s2 = factor1*f₁
-    s3 = -0.125P₁² + Z - Q₁²*c1
+    s3 = -0.125P₁² + (Z - Q₁²*c1)
     #@show c1
-    dq[1], dq[2] = 0.25*Q₂²*[P₁x, P₁y]
-    dq[3], dq[4] = 0.25*Q₁²*[P₂x, P₂y]
-    dq[5] = 2*Q₁x*(s1 + s2) + factor1*f₂*Q₁y
-    dq[6] = 2*Q₁y*(s1 - s2) + factor1*f₂*Q₁x
-    dq[7] = 2*Q₂x*(s3 - s2) - factor1*f₂*Q₂y
-    dq[8] = 2*Q₂y*(s3 + s2) - factor1*f₂*Q₂x
-    nothing
+    dq[1] = 0.25(Q₂²*q[5])
+    dq[2] = 0.25(Q₂²*q[6])
+    dq[3] = 0.25(Q₁²*q[7])
+    dq[4] = 0.25(Q₁²*q[8])
+    dq[5] = 2q[1]*(s1 + s2) + (factor1*f₂)*q[2]
+    dq[6] = 2q[2]*(s1 - s2) + (factor1*f₂)*q[1]
+    dq[7] = 2q[3]*(s3 - s2) - (factor1*f₂)*q[4]
+    dq[8] = 2q[4]*(s3 + s2) - (factor1*f₂)*q[3]
+    return nothing
 end
 
 #Variables para tests de compatibilidad hamiltoniano eom
